@@ -58,11 +58,15 @@ class DQN(Agent):
         self.optimizer = torch.optim.Adam(self.q_f.parameters(), 0.0001)
     
     def step(self, obs, step, avl_actions=None):
+        # print('stepping')
         self.iteration = step
         self.last_obs = torch.tensor(obs, dtype=torch.float32)
         if self.obs_type!='image':
-            last_obs = torch.tile(self.last_obs, (self.actions_cardinal, 1)).to(self.device)
-        else: last_obs = obs
+            last_obs = torch.tile(self.last_obs.clone().detach(), (self.actions_cardinal, 1)).to(self.device)
+        else:
+            last_obs = torch.tensor(self.last_obs.clone().detach(), dtype=torch.float32)
+            # print('ac',self.actions_cardinal, ', dim', last_obs.shape)
+            last_obs = last_obs.repeat((self.actions_cardinal, 1, 1, 1)).to(self.device)
         if avl_actions==None: #avl_actions = self.actions
             avl_actions = torch.tensor(list(range(self.actions_cardinal)), dtype=torch.float32).unsqueeze(dim=-1)
         avl_actions = avl_actions.to(self.device)
@@ -84,7 +88,12 @@ class DQN(Agent):
         return int(self.last_action.item())
         
     def update(self, reward, next_obs, terminal:bool, avl_actions=None):
-        nxt_obs = torch.tile(torch.tensor(next_obs, dtype=torch.float32), (self.actions_cardinal, 1)).to(self.device)
+        # print('updating')
+        if self.obs_type!='image':
+            nxt_obs = torch.tile(torch.tensor(next_obs, dtype=torch.float32), (self.actions_cardinal, 1)).to(self.device)
+        else:
+            nxt_obs = torch.tensor(next_obs, dtype=torch.float32)
+            nxt_obs = nxt_obs.repeat((self.actions_cardinal, 1, 1, 1)).to(self.device)
         if avl_actions==None: # avl_actions = self.actions
             avl_actions = torch.tensor(list(range(self.actions_cardinal)), dtype=torch.float32).unsqueeze(dim=-1)
         avl_actions = avl_actions.to(self.device)
@@ -92,35 +101,57 @@ class DQN(Agent):
         #     v_ = 0
         # else:
         #     v_ = torch.max(self.q_f(nxt_obs, avl_actions))
+        # print('evaluating target')
         v_ = (1-terminal) * (torch.max(self.q_f(nxt_obs, avl_actions).detach()))
         target = torch.tensor([reward], dtype=torch.float32).to(self.device) + self.gamma * v_
         # TD-error
-        last_obs = torch.tile(self.last_obs, (self.action_cardinal,1)).to(self.device)
-        last_action = self.last_action.unsqueeze(dim=-1).unsqueeze(-1) if self.last_action.shape==torch.Size([]) else self.last_action.unsqueeze(-1)
+        if self.obs_type!='image':
+            last_obs = torch.tile(self.last_obs, (self.action_cardinal,1)).to(self.device)
+            last_action = self.last_action.unsqueeze(dim=-1).unsqueeze(-1) if self.last_action.shape==torch.Size([]) else self.last_action.unsqueeze(-1)
+        else:
+            last_obs = self.last_obs.to(self.device)
+            last_action = self.last_action.unsqueeze(dim=-1).unsqueeze(-1)
         last_action = last_action.to(self.device)
         # breakpoint()
+        # print('evaluating current')
         loss = self.loss(self.q_f(last_obs, last_action), target)
+        # print('backing up')
+        torch.autograd.set_detect_anomaly(True)
         loss.backward()
+        # print('stepping')
         self.optimizer.step()
+        # print('stepped')
 
-        datum_tup = (self.last_obs.cpu().detach().numpy(), [self.last_action.cpu().detach().numpy()], [reward], next_obs, [terminal])
+        # datum_tup = (self.last_obs.cpu().detach().numpy(), [self.last_action.cpu().detach().numpy()], [reward], next_obs, [terminal])
         # if terminal:
-        #     for i in range(100): self.buffer.add(datum_tup)
+        #     for i in range(30): self.buffer.add(datum_tup)
         # self.buffer.add(datum_tup)
-        # if self.iteration>1e4:
+        # if self.iteration>1e4 and self.iteration%40==0:
         #     self.update_from_buffer(self.cfgs['ReplayBuffer']['update'])
     
     def update_from_buffer(self, sample_size):
+        # print('from buffer')
         obs, action, reward, next_obs, terminal = self.buffer.sample(sample_size)
         obs = torch.tensor(obs, dtype=torch.float32).to(self.device)
         action = torch.tensor(action, dtype=torch.float32).to(self.device)
-        next_obs = torch.tensor(next_obs, dtype=torch.float32).to(self.device).unsqueeze(1).expand(-1, self.actions_cardinal, -1).reshape(-1, max(self.obs_size)).to(self.device)
-        avl_actions = torch.tile(torch.tensor(list(range(self.actions_cardinal)), dtype=torch.float32), (int(reward.shape[0]), 1)).to(self.device).unsqueeze(-1).reshape(-1, self.action_cardinal).to(self.device)
+        if self.obs_type!='image':
+            next_obs = torch.tensor(next_obs, dtype=torch.float32).to(self.device).unsqueeze(1).expand(-1, self.actions_cardinal, -1).reshape(-1, max(self.obs_size))
+        else:
+            next_obs = torch.tensor(next_obs, dtype=torch.float32).to(self.device).unsqueeze(1).expand(-1, self.actions_cardinal, -1, -1, -1)
+            next_obs = next_obs.reshape(-1, next_obs.shape[2], next_obs.shape[3], next_obs.shape[4])
+        # avl_actions = torch.tile(torch.tensor(list(range(self.actions_cardinal)), dtype=torch.float32), (int(reward.shape[0]), 1)).to(self.device).unsqueeze(-1).reshape(-1, self.action_cardinal).to(self.device)
+        avl_actions = torch.tensor(list(range(self.actions_cardinal)), dtype=torch.float32).unsqueeze(dim=-1).to(self.device)
         # breakpoint()
-        
-        v_ = (1 - torch.tensor(terminal, dtype=torch.float32).to(self.device)) * (torch.max(self.q_f(next_obs, avl_actions).detach().reshape((reward.shape[0], self.actions_cardinal, self.action_cardinal)), dim=1))[0]
+        # print('evaluating target')
+        # breakpoint()
+        if self.obs_type!='image':
+            v_ = (1 - torch.tensor(terminal, dtype=torch.float32).to(self.device)) * (torch.max(self.q_f(next_obs, avl_actions).detach().reshape((reward.shape[0], self.actions_cardinal, self.action_cardinal)), dim=1))[0]
+        else:
+            avl_actions = avl_actions.repeat(next_obs.shape[0]//self.actions_cardinal, 1)
+            v_ = (1 - torch.tensor(terminal, dtype=torch.float32).to(self.device)) * (torch.max(self.q_f(next_obs, avl_actions).detach().reshape((reward.shape[0], self.actions_cardinal, self.action_cardinal)), dim=1))[0]
         target = torch.tensor(reward, dtype=torch.float32).to(self.device) + self.gamma * v_
-        loss = self.loss(self.q_f(obs, action), target)
+        # print('evaluating current')
+        loss = self.loss(self.q_f(obs, action), target.unsqueeze(0))
         loss.backward()
         self.optimizer.step()
 
@@ -187,18 +218,22 @@ class CQN(nn.Module):
         # use a pretrained resnet preferably, flatten its output to action_cardinality size
         self.c1 = nn.Conv2d(3, 64, 3)
         self.c2 = nn.Conv2d(64, 128, 3, stride=2)
-        self.c3 = nn.Conv2d(128, 256, 3, stride=2)
+        self.c3 = nn.Conv2d(128, 256, 4, stride=3)
+        self.c4 = nn.Conv2d(256, 512, 3, stride=2)
+        self.c5 = nn.Conv2d(512, 1024, 3, stride=2)
         self.f1 = nn.Flatten(start_dim=1)
-        breakpoint()
+        # breakpoint()
+        # breakpoint()
         # flat_size = self.f1(self.c3(self.c2(self.c1(torch.randn(self.input_size).permute(2,0,1).shape))))
-        flat_size = 2498
+        # flat_size = 35840
+        flat_size = self.c5(self.c4(self.c3(self.c2(self.c1(torch.ones(self.input_size).permute(2,0,1)))))).numel()
         self.l1 = nn.Linear(flat_size, 2048)
         self.l2 = nn.Linear(2048, 127)
         self.l3 = nn.Linear(128, 32)
         self.l4 = nn.Linear(32, action_size)
 
     def forward(self, obs, action):
-        breakpoint()
+        # breakpoint()
         
         if len(obs.shape)<4: obs=obs.permute(2,0,1).unsqueeze(0)
         elif len(obs.shape)==4: obs=obs.permute(0,3,1,2)
@@ -206,10 +241,14 @@ class CQN(nn.Module):
         x = self.c1(obs)
         x = self.c2(x)
         x = self.c3(x)
-        breakpoint()
+        x = self.c4(x)
+        x = self.c5(x)
+        # print('flat shape:', x.shape)
+        # breakpoint()
         x = self.f1(x)
         x = self.l1(x)
         x = self.l2(x)
-        ot = self.l3(torch.concatenate(x, action))
+        # breakpoint()
+        ot = self.l3(torch.concatenate((x, action), axis=1))
         ot = self.l4(ot)
         return ot

@@ -36,7 +36,7 @@ env = gym.make(cfgs['env']['name'], render_mode=rendering[cfgs['env']['render']]
 
 cfgs = get_cardinals(env.action_space, env.observation_space, cfgs)
 
-agent = DQN(cfgs, device='cpu')
+agent = DQN(cfgs, device='cuda')
 # breakpoint()
 # agent = agent.load(path+'/exp_000008')
 # cfgs = agent.cfgs
@@ -59,7 +59,7 @@ with tqdm(range(int(7e5))) as tkdm:
         action = agent.step(obs, i)
         obs, r, done, truncated, info = env.step(action)
         collected_r += r
-        done = (float(obs[0])>=0.5)
+        # done = (float(obs[0])>=0.5)
         agent.update(r, obs, done)
         if done: #or truncated:
             # termination = {done: 'done', truncated:'truncated'}.get(True)
