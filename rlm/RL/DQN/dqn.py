@@ -1,6 +1,7 @@
-from rlm.Agent import Agent
+import importlib
+from rlm.Agent.agent import Agent
 from rlm.utils import read_configs
-from rlm.Agent.ReplayBuffers import RBuff
+rbuffs = importlib.import_module("rlm.Agent.ReplayBuffers.rbuff")
 
 import os
 import sys
@@ -13,7 +14,7 @@ import torch.nn as nn
 
 
 class DQN(Agent):
-    def __init__(self, actions_shape, action_shape, obs_size, obs_type:str, exploration='eps_gr', discount=0.99, epsilon=0.1, cfgs=None, device=None):
+    def __init__(self, cfgs=None, device=None, **kwargs):
         ''' actions: action space of the environment
         observation_size: what arr size would observations be
         obs_type: ('vec', 'image') are observations normal arrays (in case of joint values etc) or and image
@@ -22,40 +23,46 @@ class DQN(Agent):
         # self.actions = actions
         if cfgs is not None:
             self.cfgs = cfgs
-            self.actions_cardinal = self.cfgs['actions_shape']
-            self.action_cardinal = self.cfgs['action_shape']
-            self.obs_size = self.cfgs['obs_size']
-            self.obs_type = self.cfgs['obs_type']
-            self.gamma = self.cfgs['discount']
-            self.eps = min(abs(self.cfgs['epsilon']), 1)
-            self.exploration = self.cfgs['exploration']
-            self.buffer = self.cfgs['ReplayBuffer']
+            # breakpoint()
+            self.actions_cardinal = self.cfgs['env']['actions_shape']
+            self.action_cardinal = self.cfgs['env']['action_shape']
+            self.obs_size = self.cfgs['env']['obs_size']
+            self.obs_type = self.cfgs['env']['obs_type']
+            self.gamma = self.cfgs['agent']['discount']
+            self.exploration = self.cfgs['exploration']['name']
+            self.eps = min(abs(self.cfgs['exploration']['param']['eps']), 1)
+            self.buffer = getattr(rbuffs, self.cfgs['ReplayBuffer']['name'])(capacity=self.cfgs['ReplayBuffer']['capacity'], removals=self.cfgs['ReplayBuffer']['remove'])
 
-        self.actions_cardinal = actions_shape
-        self.action_cardinal = action_shape
-        self.obs_size = obs_size
-        self.gamma = discount
-        self.eps = min(epsilon,1)
-        self.last_obs, self.last_action = None, None
-        self.exploration = exploration
+        else:
+            self.actions_cardinal = kwargs['actions_shape']
+            self.action_cardinal = kwargs['action_shape']
+            self.obs_size = kwargs['obs_size']
+            self.obs_type = kwargs['obs_type']
+            self.gamma = kwargs['discount']
+            self.eps = min(kwargs['epsilon'],1)
+            self.exploration = kwargs['exploration']
+            self.cfgs = None
+            from rlm.Agent.ReplayBuffers import RBuff
+            self.buffer = RBuff()
         self.device = device if device is not None else 'cuda' if torch.cuda.is_available() else 'cpu'
-        # breakpoint()
-        self.cfgs = None
-        self.buffer = RBuff()
+        self.last_obs, self.last_action = None, None
         self.iteration = 0
 
-        if obs_type=='vec':
-            self.q_f = QN(max(obs_size), self.action_cardinal)
-        elif obs_type=='image':
-            self.q_f = CQN(obs_size, self.action_cardinal)
+        if self.obs_type=='vec':
+            self.q_f = QN(max(self.obs_size), self.action_cardinal)
+        elif self.obs_type=='image':
+            self.q_f = CQN(self.obs_size, self.action_cardinal)
         self.q_f.to(self.device)
+        # breakpoint()
         self.loss = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.q_f.parameters(), 0.0001)
     
     def step(self, obs, step, avl_actions=None):
         self.iteration = step
         self.last_obs = torch.tensor(obs, dtype=torch.float32)
-        last_obs = torch.tile(self.last_obs, (self.actions_cardinal, 1)).to(self.device)
+        if self.obs_type!='image':
+            last_obs = torch.tile(self.last_obs, (self.actions_cardinal, 1)).to(self.device)
+        else: last_obs = obs
         if avl_actions==None: #avl_actions = self.actions
             avl_actions = torch.tensor(list(range(self.actions_cardinal)), dtype=torch.float32).unsqueeze(dim=-1)
         avl_actions = avl_actions.to(self.device)
@@ -64,7 +71,7 @@ class DQN(Agent):
         # epsilon-greedy strategy
         if self.exploration == 'eps_gr':
             prob = torch.rand(1,).item()
-            eps = max(0.05, self.eps*(1-step/1e6))
+            eps = max(0.05, self.eps*(1-step/1e3))
             if prob<=eps:
                 # breakpoint()
                 self.last_action = torch.tensor(np.random.choice(avl_actions.cpu().numpy().squeeze()), dtype=torch.float32)
@@ -101,7 +108,7 @@ class DQN(Agent):
         #     for i in range(100): self.buffer.add(datum_tup)
         # self.buffer.add(datum_tup)
         # if self.iteration>1e4:
-        #     self.update_from_buffer(4)
+        #     self.update_from_buffer(self.cfgs['ReplayBuffer']['update'])
     
     def update_from_buffer(self, sample_size):
         obs, action, reward, next_obs, terminal = self.buffer.sample(sample_size)
@@ -120,16 +127,16 @@ class DQN(Agent):
     def save(self, path:str=None, **kwargs):
         if not os.path.exists(path):
             logging.warning(f'path: {path} not found, creating one')
-            exp_dir = os.path.join(path, f'exp_{1:04d}')
+            exp_dir = os.path.join(path, f'exp_{1:06d}')
             os.makedirs(exp_dir)
         else:
-            exp_dir = os.path.join(path, f'exp_{len(os.listdir(path))+1:04d}')
+            exp_dir = os.path.join(path, f'exp_{len(os.listdir(path))+1:06d}')
             os.makedirs(exp_dir)
         # print(f'Agent details for the experiment will be saved at {exp_dir}')
         logging.info(f'Agent details for the experiment will be saved at {exp_dir}')
         with open(exp_dir+'/configs.yml', 'w') as configs:
             yaml.dump(self.cfgs, configs, default_flow_style=False)
-        torch.save(self.q_f.state_dict(), f"{exp_dir}/q_f.pth")
+        torch.save(self.q_f, f"{exp_dir}/q_f.pth")
 
     def load(self, path:str=None, **kwargs):
         if not os.path.exists(path+'/configs.yml'):
@@ -140,8 +147,8 @@ class DQN(Agent):
             sys.exit(1)
         
         cfgs = read_configs(path+'/configs.yml')
-        agent = self.__class__(cfgs)
-        agent.q_f.load_state_dict(torch.load(path+'/q_f.pth'))
+        agent = self.__class__(cfgs, self.device)
+        agent.q_f = torch.load(path+'/q_f.pth', weights_only=False)
         return agent
 
 
@@ -151,12 +158,12 @@ class DQN(Agent):
 class QN(nn.Module):
     def __init__(self, obs_size, action_size, **kwargs):
         super().__init__()
-        self.flat1 = nn.Linear(obs_size+action_size, 64)
+        self.flat1 = nn.Linear(obs_size+action_size, 16)
         self.relu = nn.ReLU()
-        self.flat2 = nn.Linear(64, 128)
+        self.flat2 = nn.Linear(16, 128)
         self.relu2 = nn.ReLU()
-        self.flat3 = nn.Linear(128, 64)
-        self.outl = nn.Linear(64, action_size)
+        self.flat3 = nn.Linear(128, 16)
+        self.outl = nn.Linear(16, action_size)
 
     def forward(self, obs, action):
         # breakpoint()
@@ -166,6 +173,7 @@ class QN(nn.Module):
         x = self.flat2(x)
         # x = self.relu2(x)
         x = self.flat3(x)
+        x = self.relu(x)
         out = self.outl(x)
         return out
 
@@ -177,20 +185,31 @@ class CQN(nn.Module):
         self.input_size = input_observation_size
 
         # use a pretrained resnet preferably, flatten its output to action_cardinality size
-        self.l1 = nn.Conv2d(3, 64, 3)
-        self.l2 = nn.Conv2d(64, 128, 3)
-        self.l3 = nn.Conv2d(128, 256, 3)
-        self.f1 = nn.Flatten(-1, 1000)
-        self.f2 = nn.Linear(1000, 127)
-        self.f3 = nn.Linear(128, 32)
-        self.f4 = nn.Linear(32, action_size)
+        self.c1 = nn.Conv2d(3, 64, 3)
+        self.c2 = nn.Conv2d(64, 128, 3, stride=2)
+        self.c3 = nn.Conv2d(128, 256, 3, stride=2)
+        self.f1 = nn.Flatten(start_dim=1)
+        breakpoint()
+        # flat_size = self.f1(self.c3(self.c2(self.c1(torch.randn(self.input_size).permute(2,0,1).shape))))
+        flat_size = 2498
+        self.l1 = nn.Linear(flat_size, 2048)
+        self.l2 = nn.Linear(2048, 127)
+        self.l3 = nn.Linear(128, 32)
+        self.l4 = nn.Linear(32, action_size)
 
     def forward(self, obs, action):
-        x = self.l1(obs)
-        x = self.l2(x)
-        x = self.l3(x)
+        breakpoint()
+        
+        if len(obs.shape)<4: obs=obs.permute(2,0,1).unsqueeze(0)
+        elif len(obs.shape)==4: obs=obs.permute(0,3,1,2)
+        else: print('ERROR: check observation input, also make sure its representation is consistent with atari observations: (H*W*C) shape')
+        x = self.c1(obs)
+        x = self.c2(x)
+        x = self.c3(x)
+        breakpoint()
         x = self.f1(x)
-        x = self.f2(x)
-        ot = self.f3(torch.concatenate(x, action))
-        ot = self.f4(ot)
+        x = self.l1(x)
+        x = self.l2(x)
+        ot = self.l3(torch.concatenate(x, action))
+        ot = self.l4(ot)
         return ot

@@ -5,11 +5,11 @@ from numpy.random import choice
 
 
 class RBuff:
-    def __init__(self, capacity=5e3):
+    def __init__(self, capacity=5e3, removals=1e3):
         self.buffer = [[]]
         self.max_buff_size = capacity
         self.tuple_size = None
-        self.remove_olds = 1000
+        self.remove_olds = removals
         # pass
 
     def add(self, datum:tuple):
