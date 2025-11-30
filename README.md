@@ -39,3 +39,10 @@ This project shall cover,
     Although the author doesn't consider these as RL or DeepRL methods, but in light of buzz around those their comparisons are also provided -->
 
 All the environments used here are directly taken from gymnasium or are built on top of gymnasium
+
+
+To use the code base, modify the data/config.yml file (currently only discrete (vector and image) observations are supported with DQN agent, Replay Buffer and only epsilon-greedy exploration).
+
+Simply run `python main.py`
+
+Only pytorch and gymnasium are primary requirements, along with installing through setup.py, more and exact instructions will be followed soon, till then a little effort on mentioned shall be enough.
