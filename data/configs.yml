@@ -1,0 +1,21 @@
+name: rlm_instance
+env:
+  name: ALE/Breakout-v5
+  obs_type: image
+  is_sa_discrete: 1
+  render: 1
+agent:
+  name: DQN
+  discount: 0.99
+seed: 0
+exploration:
+  name: eps_gr
+  param:
+    eps: 0.1
+ReplayBuffer:
+  name: RBuff
+  capacity: 10000
+  remove: 1000
+  update: 8
+max_reward: -.inf
+episodes: 0

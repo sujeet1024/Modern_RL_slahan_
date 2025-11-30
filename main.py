@@ -49,7 +49,7 @@ episode_start = 0
 max_r = float('-inf') if not 'max_reward' in cfgs else cfgs['max_reward']
 # max_r = cfgs['max_reward']
 collected_r = 0
-best_ep = -max_r
+best_ep = max_r
 # breakpoint()
 obs, info = env.reset()
 with tqdm(range(int(7e5))) as tkdm:
@@ -67,7 +67,7 @@ with tqdm(range(int(7e5))) as tkdm:
             # iterspepisode.append(info['episode_frame_number'])
             # iterspepisode.append(i-episode_start)
             if done:
-                if i+1-episode_start<best_ep:
+                if i+1-episode_start>best_ep:
                     best_ep=i+1-episode_start
                     print(f'episode {episode}: reward collected in this episode was {collected_r} after running for {i+1-episode_start} steps')
                 if collected_r>max_r:
