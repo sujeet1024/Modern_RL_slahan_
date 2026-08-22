@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 
 # this class here should inherit from gym env class, or remove Env package and every env should inherit from gym env only
 class Environment(ABC):
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.state = None
         self.actions = []
         pass
@@ -16,15 +16,14 @@ class Environment(ABC):
     def start(self, hyper_params, render:bool):
         ''' Start the environment with a particular setup '''
         reward = 0.0                # No reward is recieved on first observation, action yet to be taken
-        terminate = False
-        return self.state, reward, terminate
+        terminal = False
+        return self.state, reward, terminal
 
     @abstractmethod
     def step(self, agent_action):
         reward = self.feedback(agent_action)
-        self.state = self.transition(agent_action)
-        terminate = self.is_terminal()
-        return self.state, reward, terminate
+        self.state, terminal = self.transition(agent_action)
+        return self.state, reward, terminal
     
     @abstractmethod
     def reset(self, last:bool):
@@ -35,10 +34,21 @@ class Environment(ABC):
         self.state = None
 
     @abstractmethod
-    def is_terminal(self):
-        ''' Checks in transition state is terminal '''
-        self.state
-        self.reset()
+    def render(self):
+        ''' Visualize environment state (including agent) '''
+        pass
 
-    def action_space(self):
-        return self.actions
+    @abstractmethod
+    def vis_policy(self, policy):
+        ''' Visualize policy: snapshot for grid env, gif/video for large env '''
+        pass
+
+
+class TransitionModel(ABC):
+    def __init__(self, **kwargs):
+        super().__init__()
+
+    @abstractmethod
+    def transition(self, obs, action, **kwargs):
+        # return list[rewards], list[next_obs], list[probs]
+        pass
