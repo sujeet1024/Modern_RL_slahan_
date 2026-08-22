@@ -1,3 +1,6 @@
 rough
 data/exp*
+data/last_log.txt
 rlm.egg-info
+.vscode
+*__pycache__*

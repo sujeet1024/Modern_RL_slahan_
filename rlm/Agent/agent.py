@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 class Agent(ABC):
     def __init__(self):
         self.actions = None
-        self.v_f = None
-        self.q_f = None
+        self.vf = None
+        self.qf = None
         self.pi = None
         self.env = None
     
@@ -22,10 +22,11 @@ class Agent(ABC):
 
     @abstractmethod
     def step(self, state, actions=None):
+        # take an action in the environment state
         pass
 
     @abstractmethod
-    def update(self, reward, next_state):
+    def update(self, rew, next_obs):
         # update policy/value
         pass
 
@@ -38,4 +39,13 @@ class Agent(ABC):
     @abstractmethod
     def load(self, **kwargs):
         # load the agent as saved using save method
+        pass
+
+
+class ActionPolicy(ABC):
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def step(self, obs, avl_actions=None, action_potentials=None, **kwargs):
         pass

@@ -1,21 +1,26 @@
 name: rlm_instance
+seed: 10
 env:
-  name: ALE/Breakout-v5
-  obs_type: image
-  is_sa_discrete: 1
-  render: 1
+  name: CartPole-v1
+  obs_type: image    # vec or image
+  is_sa_discrete: 1   # 0 or 1
+  render: 1        # 0 or 1
+  nums: 4          # num of envs in case of parallelizing
+  sticky_actions: 3   # times an action is played (useful in atari dqn)
 agent:
   name: DQN
   discount: 0.99
-seed: 0
+  trace: 0.4      # 0 ~ close to td, 1 ~ mc rollout
+  history: 1      # how many of recent observations to include in state
+  tau: 0.01       # target network update polyak parameter
 exploration:
   name: eps_gr
   param:
     eps: 0.1
 ReplayBuffer:
   name: RBuff
-  capacity: 10000
+  capacity: 20000
   remove: 1000
-  update: 8
-max_reward: -.inf
+  update: 16    # sample size for updating from buffer
+max_reward: False
 episodes: 0
