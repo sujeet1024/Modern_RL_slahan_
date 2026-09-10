@@ -10,6 +10,7 @@ class Agent(ABC):
         self.qf = None
         self.pi = None
         self.env = None
+        self.sav_path = None
     
     # @abstractmethod
     # def start(self, **kwargs):

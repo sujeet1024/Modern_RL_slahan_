@@ -130,7 +130,8 @@ class TD3(Agent):
         with open(exp_dir+'/configs.yml', 'w') as configs:
             yaml.dump(self.cfgs, configs, default_flow_style=False)
         torch.save(self.pi, f"{exp_dir}/pi.pth")
-        torch.save(self.qf, f"{exp_dir}/qf.pth")
+        torch.save(self.qf1, f"{exp_dir}/qf1.pth")
+        torch.save(self.qf2, f"{exp_dir}/qf2.pth")
 
     def load(self, path:str=None, **kwargs):
         if not os.path.exists(path+'/configs.yml'):
@@ -145,8 +146,12 @@ class TD3(Agent):
         
         cfgs = read_configs(path+'/configs.yml')
         agent = self.__class__(cfgs, self.device)
-        agent.pi = torch.load(path+'/pi.pth', weights_only=False)
-        agent.qf = torch.load(path+'/qf.pth', weights_only=False)
+        agent.pi = torch.load(path+'/pi.pth', weights_only=False).to(self.device)
+        agent.qf1 = torch.load(path+'/qf1.pth', weights_only=False).to(self.device)
+        agent.qf2 = torch.load(path+'/qf2.pth', weights_only=False).to(self.device)
+        agent.pi_ = copy.deepcopy(agent.pi)
+        agent.qf1_ = copy.deepcopy(agent.qf1)
+        agent.qf2_ = copy.deepcopy(agent.qf2)
         return agent
 
 
@@ -180,6 +185,7 @@ class PixPolicy(nn.Module):
         self.bnorm3 = nn.BatchNorm2d(64)
         self.conv3 = nn.Conv2d(64, 64, 3, 1)
         self.relu3 = nn.ReLU()
+        self.f = nn.Flatten(start_dim=1)
         flat_size = self.relu3(self.conv3(self.bnorm3(self.relu2(self.conv2(self.bnorm2(self.pool1(self.relu1(self.conv1(torch.zeros(obs_size).permute(2,0,1)))))))))).numel()
         print('flat_size:', flat_size)
         self.bnorm4 = nn.BatchNorm1d(flat_size)
@@ -190,7 +196,7 @@ class PixPolicy(nn.Module):
     def forward(self, obs, action=None):
         x = self.pool1(self.relu1(self.conv1(obs)))#.unsqueeze(0))))
         x = self.relu2(self.conv2(self.bnorm2(x)))
-        x = self.relu3(self.conv3(self.bnorm3(x)))
+        x = self.f(self.relu3(self.conv3(self.bnorm3(x))))
         x = self.relu4(self.flat4(self.bnorm4(x)))
         out = self.dec(x, action)
         return out

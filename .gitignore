@@ -3,7 +3,8 @@ data/exp*
 data/last_log.txt
 rlm.egg-info
 .vscode
-*__pycache__*
+# *__pycache__*
 rlm/tabular_envs/city_parking.py
 rlm/tabular_envs/large_random_walks.py
 rlm/tabular_envs/shortcut_maze.py
+MUJOCO_LOG.TXT

@@ -168,7 +168,7 @@ class DQN(Agent):
         
         cfgs = read_configs(path+'/configs.yml')
         agent = self.__class__(cfgs, self.device)
-        agent.qf = torch.load(path+'/qf.pth', weights_only=False)
+        agent.qf = torch.load(path+'/qf.pth', weights_only=False).to(self.device)
         return agent
 
 

@@ -13,7 +13,7 @@ import torch.nn as nn
 
 
 class REINFORCE(Agent):
-    ''' REINFORCE with non linear FA '''
+    ''' REINFORCE with non linear FA for discrete actions '''
     def __init__(self, cfgs=None, device=None, **kwargs):
         ''' actions: action space of the environment
         observation_size: what arr size would observations be

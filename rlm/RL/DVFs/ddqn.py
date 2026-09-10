@@ -171,7 +171,8 @@ class DDQN(Agent):
         
         cfgs = read_configs(path+'/configs.yml')
         agent = self.__class__(cfgs, self.device)
-        agent.qf = torch.load(path+'/qf.pth', weights_only=False)
+        agent.qf = torch.load(path+'/qf.pth', weights_only=False).to(self.device)
+        agent.qf_ = copy.deepcopy(agent.qf)
         return agent
 
 
