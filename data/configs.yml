@@ -1,26 +1,28 @@
 name: rlm_instance
 seed: 10
 env:
-  name: CartPole-v1
-  obs_type: image    # vec or image
+  name: HalfCheetah-v5
+  obs_type: vec    # vec or image
   is_sa_discrete: 1   # 0 or 1
-  render: 1        # 0 or 1
-  nums: 4          # num of envs in case of parallelizing
+  render: 0        # 0 or 1
+  nums: 16          # num of envs in case of parallelizing
   sticky_actions: 3   # times an action is played (useful in atari dqn)
 agent:
-  name: DQN
+  name: A2C
   discount: 0.99
   trace: 0.4      # 0 ~ close to td, 1 ~ mc rollout
   history: 1      # how many of recent observations to include in state
   tau: 0.01       # target network update polyak parameter
+  normalize: 1    # 0 or 1 : to normalize action or not (forr tanh etc)
 exploration:
   name: eps_gr
   param:
+    entropy_wt: 0.0001
     eps: 0.1
 ReplayBuffer:
   name: RBuff
   capacity: 20000
   remove: 1000
-  update: 16    # sample size for updating from buffer
+  update: 128    # sample (batch) size for updating from buffer
 max_reward: False
 episodes: 0
