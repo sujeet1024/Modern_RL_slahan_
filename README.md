@@ -7,9 +7,11 @@ The repo presents implementations of important (modern/) Reinforcement Learning 
 all in simulation.
 <!-- Along with their implementations the author reports their performances and insights on different algorithms, also discussing the settings of optimal performance amongst the environments experimented. -->
 
+Realize that this covers the implementation of the methods, so their actual functional form (specially for non-linear FA) may be a bit different from the papers that introduced them.
+
 <!-- The author also provides a short background on classical RL (from Sutton and Barto) -->
 
-This project shall cover, 
+This shall cover, 
 
 - **Important (foundational) Algorithms**
 
