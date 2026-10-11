@@ -92,3 +92,19 @@ First install dependencies with pip using `requirements.txt`, then install the r
 - ddpg: pendulum, inverted pendulum, bipendal walker
 - td3: inverted pendulum
 - sac, a2c: half cheetah
+
+
+<table style="width: 100%; border-collapse: separate; border-spacing: 60px 0;">
+  <tr>
+    <td align="center" width="24%">
+      <img src="assets/vis/inv_pend_td3.png" width="100%" alt="inv_pend_td3">
+      <!-- <p><strong>Dashboard</strong></p> -->
+      <p>Inverted pendulum with DDPG</p>
+    </td>
+    <td align="center" width="35%">
+      <img src="assets/vis/biped_ddpg.png" width="100%" alt="biped_ddpg">
+      <!-- <p><strong>Analytics</strong></p> -->
+      <p>Pipedal Walker with TD3</p>
+    </td>
+  </tr>
+</table>
